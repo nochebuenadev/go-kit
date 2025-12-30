@@ -1,7 +1,6 @@
-package logutil
+package logz
 
 import (
-	"capital-link-api/internal/domain"
 	"context"
 	"errors"
 	"log/slog"
@@ -10,29 +9,51 @@ import (
 	"sync"
 )
 
-type Logger interface {
-	Debug(msg string, args ...any)
-	Info(msg string, args ...any)
-	Warn(msg string, args ...any)
-	Error(msg string, err error, args ...any)
-	LogError(msg string, err error, args ...any)
-	Fatal(msg string, err error, args ...any)
-	With(args ...any) Logger
-	WithContext(ctx context.Context) Logger
-}
-
-type slogLogger struct {
-	logger *slog.Logger
-}
-
 type (
+	// Logger defines the interface for our application logging.
+	Logger interface {
+		// Debug logs a message at DEBUG level.
+		Debug(msg string, args ...any)
+		// Info logs a message at INFO level.
+		Info(msg string, args ...any)
+		// Warn logs a message at WARN level.
+		Warn(msg string, args ...any)
+		// Error logs a message at ERROR level with an attached error.
+		Error(msg string, err error, args ...any)
+		// LogError logs an error, automatically extracting code and context if it's an apperr.AppErr.
+		LogError(msg string, err error, args ...any)
+		// Fatal logs an error and exits the application with code 1.
+		Fatal(msg string, err error, args ...any)
+		// With returns a new Logger with the given attributes.
+		With(args ...any) Logger
+		// WithContext returns a new Logger that includes values from the context.
+		WithContext(ctx context.Context) Logger
+	}
+
+	// appErrorData is a private interface to avoid direct dependency on apperr package internals
+	// while still being able to extract its rich information.
+	appErrorData interface {
+		Error() string
+		GetCode() string
+		GetContext() map[string]any
+	}
+
+	// slogLogger is the concrete implementation of Logger using slog.
+	slogLogger struct {
+		logger *slog.Logger
+	}
+
+	// ctxCorrelationKey is used for request/correlation IDs in context.
 	ctxCorrelationKey struct{}
+	// ctxExtraFieldsKey is used for storing arbitrary logging fields in context.
 	ctxExtraFieldsKey struct{}
 )
 
 const (
+	// EnvLogLevel is the environment variable to set the minimum log level (e.g., DEBUG, INFO, WARN, ERROR).
 	EnvLogLevel = "LOG_LEVEL"
-	EnvLogJSON  = "LOG_JSON_OUTPUT"
+	// EnvLogJSON is the environment variable to enable JSON output (set to "true" or "1").
+	EnvLogJSON = "LOG_JSON_OUTPUT"
 )
 
 var (
@@ -40,6 +61,8 @@ var (
 	once         sync.Once
 )
 
+// MustInit initializes the global logger once. It reads configuration from environment variables.
+// staticArgs can be used to add global fields to all logs (e.g., service name, environment).
 func MustInit(staticArgs ...any) {
 	once.Do(func() {
 		level := getLogLevelFromEnv()
@@ -67,11 +90,35 @@ func MustInit(staticArgs ...any) {
 	})
 }
 
+// Global returns the singleton logger instance. It panics if MustInit hasn't been called.
 func Global() Logger {
 	if globalLogger == nil {
-		panic("logutil: the logger has not been initialized. Call MustInit() first")
+		panic("logz: the logger has not been initialized. Call MustInit() first")
 	}
 	return globalLogger
+}
+
+// WithCorrelationID adds a correlation ID to the context.
+func WithCorrelationID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, ctxCorrelationKey{}, id)
+}
+
+// WithField adds a single key-value pair to the context for logging.
+func WithField(ctx context.Context, key string, value any) context.Context {
+	return WithFields(ctx, map[string]any{key: value})
+}
+
+// WithFields adds multiple key-value pairs to the context for logging.
+func WithFields(ctx context.Context, fields map[string]any) context.Context {
+	existing, _ := ctx.Value(ctxExtraFieldsKey{}).(map[string]any)
+	newMap := make(map[string]any, len(existing)+len(fields))
+	for k, v := range existing {
+		newMap[k] = v
+	}
+	for k, v := range fields {
+		newMap[k] = v
+	}
+	return context.WithValue(ctx, ctxExtraFieldsKey{}, newMap)
 }
 
 func (l *slogLogger) Debug(msg string, args ...any) { l.logger.Debug(msg, args...) }
@@ -90,14 +137,15 @@ func (l *slogLogger) LogError(msg string, err error, args ...any) {
 		return
 	}
 
-	var appErr *domain.AppError
-	if errors.As(err, &appErr) {
-		args = append(args, slog.String("error_code", appErr.Code))
-		for k, v := range appErr.Context {
+	var ae appErrorData
+	if errors.As(err, &ae) {
+		args = append(args, slog.String("error_code", ae.GetCode()))
+
+		for k, v := range ae.GetContext() {
 			args = append(args, slog.Any(k, v))
 		}
 
-		l.Error(msg, appErr.Err, args...)
+		l.Error(msg, err, args...)
 		return
 	}
 
@@ -119,38 +167,25 @@ func (l *slogLogger) WithContext(ctx context.Context) Logger {
 	}
 
 	newLogger := l.logger
+	modified := false
 
 	if id, ok := ctx.Value(ctxCorrelationKey{}).(string); ok && id != "" {
 		newLogger = newLogger.With(slog.String("request_id", id))
+		modified = true
 	}
 
 	if fields, ok := ctx.Value(ctxExtraFieldsKey{}).(map[string]any); ok {
 		for k, v := range fields {
 			newLogger = newLogger.With(k, v)
 		}
+		modified = true
+	}
+
+	if !modified {
+		return l
 	}
 
 	return &slogLogger{logger: newLogger}
-}
-
-func WithCorrelationID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, ctxCorrelationKey{}, id)
-}
-
-func WithField(ctx context.Context, key string, value any) context.Context {
-	return WithFields(ctx, map[string]any{key: value})
-}
-
-func WithFields(ctx context.Context, fields map[string]any) context.Context {
-	existing, _ := ctx.Value(ctxExtraFieldsKey{}).(map[string]any)
-	newMap := make(map[string]any, len(existing)+len(fields))
-	for k, v := range existing {
-		newMap[k] = v
-	}
-	for k, v := range fields {
-		newMap[k] = v
-	}
-	return context.WithValue(ctx, ctxExtraFieldsKey{}, newMap)
 }
 
 func getLogLevelFromEnv() slog.Level {

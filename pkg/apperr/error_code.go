@@ -46,7 +46,6 @@ const (
 // Description returns a human-readable description for the error code.
 // If the code is unknown, it returns the code itself as a string.
 func (c ErrorCode) Description() string {
-
 	switch c {
 	case ErrInvalidInput:
 		return "Invalid input provided"

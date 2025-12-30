@@ -11,11 +11,11 @@ func TestNew(t *testing.T) {
 	msg := "test message"
 	err := New(code, msg)
 
-	if err.Code != code {
-		t.Errorf("expected code %s, got %s", code, err.Code)
+	if err.code != code {
+		t.Errorf("expected code %s, got %s", code, err.code)
 	}
-	if err.Message != msg {
-		t.Errorf("expected message %s, got %s", msg, err.Message)
+	if err.message != msg {
+		t.Errorf("expected message %s, got %s", msg, err.message)
 	}
 }
 
@@ -25,14 +25,14 @@ func TestWrap(t *testing.T) {
 	originalErr := errors.New("original error")
 	err := Wrap(code, msg, originalErr)
 
-	if err.Code != code {
-		t.Errorf("expected code %s, got %s", code, err.Code)
+	if err.code != code {
+		t.Errorf("expected code %s, got %s", code, err.code)
 	}
-	if err.Message != msg {
-		t.Errorf("expected message %s, got %s", msg, err.Message)
+	if err.message != msg {
+		t.Errorf("expected message %s, got %s", msg, err.message)
 	}
-	if err.Err != originalErr {
-		t.Errorf("expected error %v, got %v", originalErr, err.Err)
+	if err.err != originalErr {
+		t.Errorf("expected error %v, got %v", originalErr, err.err)
 	}
 }
 
@@ -54,11 +54,11 @@ func TestEnsureAppError(t *testing.T) {
 	t.Run("standard error", func(t *testing.T) {
 		original := errors.New("something went wrong")
 		ensured := EnsureAppError(original)
-		if ensured.Code != ErrInternal {
-			t.Errorf("expected code %s, got %s", ErrInternal, ensured.Code)
+		if ensured.code != ErrInternal {
+			t.Errorf("expected code %s, got %s", ErrInternal, ensured.code)
 		}
-		if ensured.Err != original {
-			t.Errorf("expected wrapped error, got %v", ensured.Err)
+		if ensured.err != original {
+			t.Errorf("expected wrapped error, got %v", ensured.err)
 		}
 	})
 }
@@ -66,31 +66,31 @@ func TestEnsureAppError(t *testing.T) {
 func TestHelpers(t *testing.T) {
 	t.Run("InvalidInput", func(t *testing.T) {
 		err := InvalidInput("param %s is required", "id")
-		if err.Code != ErrInvalidInput {
-			t.Errorf("expected code %s, got %s", ErrInvalidInput, err.Code)
+		if err.code != ErrInvalidInput {
+			t.Errorf("expected code %s, got %s", ErrInvalidInput, err.code)
 		}
-		if err.Message != "param id is required" {
-			t.Errorf("expected formatted message, got %s", err.Message)
+		if err.message != "param id is required" {
+			t.Errorf("expected formatted message, got %s", err.message)
 		}
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
 		err := NotFound("user %d not found", 123)
-		if err.Code != ErrResourceNotFound {
-			t.Errorf("expected code %s, got %s", ErrResourceNotFound, err.Code)
+		if err.code != ErrResourceNotFound {
+			t.Errorf("expected code %s, got %s", ErrResourceNotFound, err.code)
 		}
-		if err.Message != "user 123 not found" {
-			t.Errorf("expected formatted message, got %s", err.Message)
+		if err.message != "user 123 not found" {
+			t.Errorf("expected formatted message, got %s", err.message)
 		}
 	})
 
 	t.Run("Internal", func(t *testing.T) {
 		err := Internal("database error: %v", errors.New("conn lost"))
-		if err.Code != ErrInternal {
-			t.Errorf("expected code %s, got %s", ErrInternal, err.Code)
+		if err.code != ErrInternal {
+			t.Errorf("expected code %s, got %s", ErrInternal, err.code)
 		}
-		if err.Message != "database error: conn lost" {
-			t.Errorf("expected formatted message, got %s", err.Message)
+		if err.message != "database error: conn lost" {
+			t.Errorf("expected formatted message, got %s", err.message)
 		}
 	})
 }
@@ -110,16 +110,16 @@ func TestAppErr_Detailed(t *testing.T) {
 
 	detailed := err.Detailed()
 
-	if !strings.Contains(detailed, "Code: INVALID_ARGUMENT") {
+	if !strings.Contains(detailed, "code: INVALID_ARGUMENT") {
 		t.Error("detailed output missing code")
 	}
-	if !strings.Contains(detailed, "Message: invalid name") {
+	if !strings.Contains(detailed, "message: invalid name") {
 		t.Error("detailed output missing message")
 	}
 	if !strings.Contains(detailed, "Cause: too short") {
 		t.Error("detailed output missing cause")
 	}
-	if !strings.Contains(detailed, "Context: map[field:name]") {
+	if !strings.Contains(detailed, "context: map[field:name]") {
 		t.Error("detailed output missing context")
 	}
 }
@@ -139,5 +139,18 @@ func TestErrorCode_Description(t *testing.T) {
 		if tt.code.Description() != tt.expected {
 			t.Errorf("for code %s, expected description %s, got %s", tt.code, tt.expected, tt.code.Description())
 		}
+	}
+}
+
+func TestAppErr_Getters(t *testing.T) {
+	err := New(ErrInvalidInput, "bad input").WithContext("k", "v")
+
+	if err.GetCode() != "INVALID_ARGUMENT" {
+		t.Errorf("GetCode() failed, got %s", err.GetCode())
+	}
+
+	ctx := err.GetContext()
+	if ctx["k"] != "v" {
+		t.Errorf("GetContext() failed, got %v", ctx)
 	}
 }
