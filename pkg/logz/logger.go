@@ -121,10 +121,16 @@ func WithFields(ctx context.Context, fields map[string]any) context.Context {
 	return context.WithValue(ctx, ctxExtraFieldsKey{}, newMap)
 }
 
+// Debug implements Logger.
 func (l *slogLogger) Debug(msg string, args ...any) { l.logger.Debug(msg, args...) }
-func (l *slogLogger) Info(msg string, args ...any)  { l.logger.Info(msg, args...) }
-func (l *slogLogger) Warn(msg string, args ...any)  { l.logger.Warn(msg, args...) }
 
+// Info implements Logger.
+func (l *slogLogger) Info(msg string, args ...any) { l.logger.Info(msg, args...) }
+
+// Warn implements Logger.
+func (l *slogLogger) Warn(msg string, args ...any) { l.logger.Warn(msg, args...) }
+
+// Error implements Logger.
 func (l *slogLogger) Error(msg string, err error, args ...any) {
 	if err != nil {
 		args = append(args, slog.Any("error", err))
@@ -132,6 +138,7 @@ func (l *slogLogger) Error(msg string, err error, args ...any) {
 	l.logger.Error(msg, args...)
 }
 
+// LogError implements Logger.
 func (l *slogLogger) LogError(msg string, err error, args ...any) {
 	if err == nil {
 		return
@@ -152,15 +159,18 @@ func (l *slogLogger) LogError(msg string, err error, args ...any) {
 	l.Error(msg, err, args...)
 }
 
+// Fatal implements Logger.
 func (l *slogLogger) Fatal(msg string, err error, args ...any) {
 	l.Error(msg, err, args...)
 	os.Exit(1)
 }
 
+// With implements Logger.
 func (l *slogLogger) With(args ...any) Logger {
 	return &slogLogger{logger: l.logger.With(args...)}
 }
 
+// WithContext implements Logger.
 func (l *slogLogger) WithContext(ctx context.Context) Logger {
 	if ctx == nil {
 		return l
@@ -188,6 +198,7 @@ func (l *slogLogger) WithContext(ctx context.Context) Logger {
 	return &slogLogger{logger: newLogger}
 }
 
+// getLogLevelFromEnv retrieves the log level from the EnvLogLevel environment variable.
 func getLogLevelFromEnv() slog.Level {
 	switch strings.ToUpper(os.Getenv(EnvLogLevel)) {
 	case "DEBUG":
@@ -201,6 +212,7 @@ func getLogLevelFromEnv() slog.Level {
 	}
 }
 
+// getLogFormatFromEnv checks if LOG_JSON_OUTPUT is set to "true" or "1".
 func getLogFormatFromEnv() bool {
 	val := strings.ToLower(os.Getenv(EnvLogJSON))
 	return val == "true" || val == "1"
