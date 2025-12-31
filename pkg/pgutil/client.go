@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nochebuenadev/go-kit/pkg/apperr"
+	"github.com/nochebuenadev/go-kit/pkg/health"
 	"github.com/nochebuenadev/go-kit/pkg/launcher"
 	"github.com/nochebuenadev/go-kit/pkg/logz"
 )
@@ -44,8 +45,8 @@ type (
 		DBProvider
 	}
 
-	// postgresClient is the concrete implementation of DBComponent using pgxpool.
-	postgresClient struct {
+	// pgComponent is the concrete implementation of DBComponent using pgxpool.
+	pgComponent struct {
 		logger logz.Logger
 		cfg    *DatabaseConfig
 		pool   *pgxpool.Pool
@@ -66,7 +67,7 @@ var (
 // GetPostgresClient returns the singleton instance of the database component.
 func GetPostgresClient(config *DatabaseConfig, logger logz.Logger) DBComponent {
 	clientOnce.Do(func() {
-		clientInstance = &postgresClient{
+		clientInstance = &pgComponent{
 			cfg:    config,
 			logger: logger,
 		}
@@ -75,7 +76,7 @@ func GetPostgresClient(config *DatabaseConfig, logger logz.Logger) DBComponent {
 }
 
 // OnInit implements the launcher.Component interface to initialize the database pool.
-func (c *postgresClient) OnInit() error {
+func (c *pgComponent) OnInit() error {
 	var initErr error
 	clientInitOnce.Do(func() {
 		poolConfig, err := c.getPoolConfig()
@@ -99,7 +100,7 @@ func (c *postgresClient) OnInit() error {
 }
 
 // OnStart implements the launcher.Component interface to verify the database connection.
-func (c *postgresClient) OnStart() error {
+func (c *pgComponent) OnStart() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -114,7 +115,7 @@ func (c *postgresClient) OnStart() error {
 }
 
 // OnStop implements the launcher.Component interface to gracefully close the database pool.
-func (c *postgresClient) OnStop() error {
+func (c *pgComponent) OnStop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -127,7 +128,7 @@ func (c *postgresClient) OnStop() error {
 }
 
 // Execute implements DBProvider.
-func (c *postgresClient) Execute(ctx context.Context, query string, args ...any) error {
+func (c *pgComponent) Execute(ctx context.Context, query string, args ...any) error {
 	c.logger.Debug("Postgres: Execute", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
@@ -138,7 +139,7 @@ func (c *postgresClient) Execute(ctx context.Context, query string, args ...any)
 }
 
 // QueryRow implements DBProvider.
-func (c *postgresClient) QueryRow(ctx context.Context, query string, args ...any) Row {
+func (c *pgComponent) QueryRow(ctx context.Context, query string, args ...any) Row {
 	c.logger.Debug("Postgres: QueryRow", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
@@ -148,7 +149,7 @@ func (c *postgresClient) QueryRow(ctx context.Context, query string, args ...any
 }
 
 // Query implements DBProvider.
-func (c *postgresClient) Query(ctx context.Context, query string, args ...any) (Rows, error) {
+func (c *pgComponent) Query(ctx context.Context, query string, args ...any) (Rows, error) {
 	c.logger.Debug("Postgres: Query", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
@@ -159,7 +160,7 @@ func (c *postgresClient) Query(ctx context.Context, query string, args ...any) (
 }
 
 // Ping implements DBProvider.
-func (c *postgresClient) Ping(ctx context.Context) error {
+func (c *pgComponent) Ping(ctx context.Context) error {
 	pool, err := c.getInternalPool()
 	if err != nil {
 		return err
@@ -168,7 +169,7 @@ func (c *postgresClient) Ping(ctx context.Context) error {
 }
 
 // WithTransaction implements DBProvider.
-func (c *postgresClient) WithTransaction(ctx context.Context, fn func(Tx) error) error {
+func (c *pgComponent) WithTransaction(ctx context.Context, fn func(Tx) error) error {
 	c.logger.Debug("Postgres: Iniciando transacción")
 	pool, err := c.getInternalPool()
 	if err != nil {
@@ -202,7 +203,7 @@ func (e *errRow) Scan(dest ...any) error { return e.err }
 
 // getInternalPool safely retrieves the underlying pgxpool.Pool instance.
 // It returns an apperr.Internal if the pool is not initialized.
-func (c *postgresClient) getInternalPool() (*pgxpool.Pool, error) {
+func (c *pgComponent) getInternalPool() (*pgxpool.Pool, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.pool == nil {
@@ -213,7 +214,7 @@ func (c *postgresClient) getInternalPool() (*pgxpool.Pool, error) {
 
 // handleError maps PostgreSQL and pgx errors to standard application errors (apperr).
 // It identifies unique violations, foreign key violations, and no-rows-found scenarios.
-func (c *postgresClient) handleError(err error) error {
+func (c *pgComponent) handleError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -237,8 +238,17 @@ func (c *postgresClient) handleError(err error) error {
 	return apperr.Internal("error inesperado en la base de datos").WithError(err)
 }
 
+// HealthCheck implements the health.Checkable interface.
+func (c *pgComponent) HealthCheck(ctx context.Context) error { return c.Ping(ctx) }
+
+// Name implements the health.Checkable interface.
+func (c *pgComponent) Name() string { return "postgres" }
+
+// Priority implements the health.Checkable interface.
+func (c *pgComponent) Priority() health.Level { return health.LevelCritical }
+
 // getPoolConfig parses the connection string and sets pool settings from configuration.
-func (c *postgresClient) getPoolConfig() (*pgxpool.Config, error) {
+func (c *pgComponent) getPoolConfig() (*pgxpool.Config, error) {
 	poolConfig, err := pgxpool.ParseConfig(c.cfg.GetConnectionString())
 	if err != nil {
 		return nil, err

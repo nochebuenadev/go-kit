@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nochebuenadev/go-kit/pkg/health"
 	"github.com/nochebuenadev/go-kit/pkg/launcher"
 	"github.com/nochebuenadev/go-kit/pkg/logz"
 	"github.com/valkey-io/valkey-go"
@@ -91,3 +92,14 @@ func (v *vkComponent) OnStop() error {
 func (v *vkComponent) Client() valkey.Client {
 	return v.client
 }
+
+// HealthCheck implements the health.Checkable interface.
+func (v *vkComponent) HealthCheck(ctx context.Context) error {
+	return v.client.Do(ctx, v.client.B().Ping().Build()).Error()
+}
+
+// Name implements the health.Checkable interface.
+func (v *vkComponent) Name() string { return "valkey" }
+
+// Priority implements the health.Checkable interface.
+func (v *vkComponent) Priority() health.Level { return health.LevelDegraded }
