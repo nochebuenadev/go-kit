@@ -81,6 +81,8 @@ func (s *echoServer) OnInit() error {
 		},
 	}))
 
+	s.instance.Use(mw.WithRequestID())
+
 	s.instance.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogStatus:    true,
 		LogMethod:    true,
