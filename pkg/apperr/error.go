@@ -1,6 +1,7 @@
 package apperr
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -124,4 +125,17 @@ func (e *AppErr) WithContext(key string, value any) *AppErr {
 func (e *AppErr) WithError(err error) *AppErr {
 	e.err = err
 	return e
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (e *AppErr) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Code    string         `json:"code"`
+		Message string         `json:"message"`
+		Context map[string]any `json:"context,omitempty"`
+	}{
+		Code:    string(e.code),
+		Message: e.message,
+		Context: e.context,
+	})
 }
