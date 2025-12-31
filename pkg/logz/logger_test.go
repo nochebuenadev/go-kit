@@ -64,8 +64,8 @@ func TestContextFeatures(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("CorrelationID", func(t *testing.T) {
-		ctx = WithCorrelationID(ctx, "req-123")
-		val := ctx.Value(ctxCorrelationKey{})
+		ctx = WithRequestID(ctx, "req-123")
+		val := ctx.Value(ctxRequestIDKey{})
 		if val != "req-123" {
 			t.Errorf("expected correlation ID req-123, got %v", val)
 		}
@@ -99,7 +99,7 @@ func TestLoggerWithContext(t *testing.T) {
 	logger := Global()
 
 	ctx := context.Background()
-	ctx = WithCorrelationID(ctx, "123")
+	ctx = WithRequestID(ctx, "123")
 	ctx = WithField(ctx, "user", "admin")
 
 	ctxLogger := logger.WithContext(ctx)

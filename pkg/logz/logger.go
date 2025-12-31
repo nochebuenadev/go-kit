@@ -43,8 +43,8 @@ type (
 		logger *slog.Logger
 	}
 
-	// ctxCorrelationKey is used for request/correlation IDs in context.
-	ctxCorrelationKey struct{}
+	// ctxRequestIDKey is used for request IDs in context.
+	ctxRequestIDKey struct{}
 	// ctxExtraFieldsKey is used for storing arbitrary logging fields in context.
 	ctxExtraFieldsKey struct{}
 )
@@ -98,9 +98,18 @@ func Global() Logger {
 	return globalLogger
 }
 
-// WithCorrelationID adds a correlation ID to the context.
-func WithCorrelationID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, ctxCorrelationKey{}, id)
+// WithRequestID adds a correlation ID to the context.
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, ctxRequestIDKey{}, id)
+}
+
+// GetRequestID retrieves the correlation ID from the context, if present.
+func GetRequestID(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	id, _ := ctx.Value(ctxRequestIDKey{}).(string)
+	return id
 }
 
 // WithField adds a single key-value pair to the context for logging.
@@ -179,7 +188,7 @@ func (l *slogLogger) WithContext(ctx context.Context) Logger {
 	newLogger := l.logger
 	modified := false
 
-	if id, ok := ctx.Value(ctxCorrelationKey{}).(string); ok && id != "" {
+	if id, ok := ctx.Value(ctxRequestIDKey{}).(string); ok && id != "" {
 		newLogger = newLogger.With(slog.String("request_id", id))
 		modified = true
 	}
