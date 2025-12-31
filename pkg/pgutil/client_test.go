@@ -50,7 +50,7 @@ func TestDatabaseConfig_GetConnectionString(t *testing.T) {
 }
 
 func TestPostgresClient_HandleError(t *testing.T) {
-	client := &postgresClient{}
+	client := &pgComponent{}
 
 	t.Run("nil error", func(t *testing.T) {
 		if client.handleError(nil) != nil {
