@@ -11,31 +11,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/nochebuenadev/go-kit/pkg/launcher"
 	"github.com/nochebuenadev/go-kit/pkg/logz"
 	"github.com/nochebuenadev/go-kit/pkg/mw"
 )
 
 type (
-	// Router defines the interface for registering routes and groups.
-	Router interface {
+	// RouterProvider defines the interface for registering routes and groups.
+	RouterProvider interface {
 		// Registry allows registering routes directly on the Echo instance.
 		Registry(fn func(e *echo.Echo))
 		// Group creates a new route group with the given prefix.
 		Group(prefix string) *echo.Group
 	}
 
-	// HttpServer extends Router with lifecycle management methods.
-	HttpServer interface {
-		Router
-		// OnInit initializes the server with middlewares and configurations.
-		OnInit() error
-		// OnStart starts the HTTP server in a background goroutine.
-		OnStart() error
-		// OnStop performs a graceful shutdown of the HTTP server.
-		OnStop() error
+	// HttpServerComponent extends RouterProvider with lifecycle management methods.
+	HttpServerComponent interface {
+		launcher.Component
+		RouterProvider
 	}
 
-	// echoServer is the concrete implementation of HttpServer using Labstack Echo.
+	// echoServer is the concrete implementation of HttpServerComponent using Labstack Echo.
 	echoServer struct {
 		instance *echo.Echo
 		logger   logz.Logger
@@ -44,12 +40,12 @@ type (
 )
 
 var (
-	serverInstance HttpServer
+	serverInstance HttpServerComponent
 	serverOnce     sync.Once
 )
 
 // GetEchoServer returns the singleton instance of the HTTP server.
-func GetEchoServer(cfg *Config, logger logz.Logger) HttpServer {
+func GetEchoServer(cfg *Config, logger logz.Logger) HttpServerComponent {
 	serverOnce.Do(func() {
 		serverInstance = &echoServer{
 			instance: echo.New(),
@@ -61,7 +57,7 @@ func GetEchoServer(cfg *Config, logger logz.Logger) HttpServer {
 	return serverInstance
 }
 
-// OnInit initializes the Echo instance with standard middlewares and error handling.
+// OnInit implements the launcher.Component interface to initialize the Echo instance with standard middlewares and error handling.
 func (s *echoServer) OnInit() error {
 	s.instance.HideBanner = true
 	s.instance.HidePort = true
@@ -111,7 +107,7 @@ func (s *echoServer) OnInit() error {
 	return nil
 }
 
-// OnStart starts the Echo server in a separate goroutine.
+// OnStart implements the launcher.Component interface to start the Echo server in a separate goroutine.
 func (s *echoServer) OnStart() error {
 	s.logger.Info("Iniciando servidor HTTP", "port", s.cfg.Port)
 
@@ -125,7 +121,7 @@ func (s *echoServer) OnStart() error {
 	return nil
 }
 
-// OnStop gracefully shuts down the Echo server with a timeout.
+// OnStop implements the launcher.Component interface to gracefully shut down the Echo server with a timeout.
 func (s *echoServer) OnStop() error {
 	s.logger.Info("Apagando servidor HTTP (Graceful Shutdown)...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

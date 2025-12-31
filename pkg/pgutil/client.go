@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nochebuenadev/go-kit/pkg/apperr"
+	"github.com/nochebuenadev/go-kit/pkg/launcher"
 	"github.com/nochebuenadev/go-kit/pkg/logz"
 )
 
@@ -23,8 +24,8 @@ type (
 	// Tx matches pgx.Tx interface.
 	Tx pgx.Tx
 
-	// DBExecutor defines the set of operations that can be performed against the database.
-	DBExecutor interface {
+	// DBProvider defines the set of operations that can be performed against the database.
+	DBProvider interface {
 		// Execute runs a command that doesn't return rows (e.g. INSERT, UPDATE, DELETE).
 		Execute(ctx context.Context, query string, args ...any) error
 		// QueryRow executes a query that is expected to return at most one row.
@@ -37,15 +38,10 @@ type (
 		Ping(ctx context.Context) error
 	}
 
-	// DBComponent extends DBExecutor with lifecycle management methods.
+	// DBComponent extends DBProvider with lifecycle management methods.
 	DBComponent interface {
-		DBExecutor
-		// OnInit initializes the database component.
-		OnInit() error
-		// OnStart starts the database component services.
-		OnStart() error
-		// OnStop stops the database component services and closes connections.
-		OnStop() error
+		launcher.Component
+		DBProvider
 	}
 
 	// postgresClient is the concrete implementation of DBComponent using pgxpool.
@@ -78,7 +74,7 @@ func GetPostgresClient(config *DatabaseConfig, logger logz.Logger) DBComponent {
 	return clientInstance
 }
 
-// OnInit implements DBComponent.
+// OnInit implements the launcher.Component interface to initialize the database pool.
 func (c *postgresClient) OnInit() error {
 	var initErr error
 	clientInitOnce.Do(func() {
@@ -102,7 +98,7 @@ func (c *postgresClient) OnInit() error {
 	return initErr
 }
 
-// OnStart implements DBComponent.
+// OnStart implements the launcher.Component interface to verify the database connection.
 func (c *postgresClient) OnStart() error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -117,7 +113,7 @@ func (c *postgresClient) OnStart() error {
 	return c.pool.Ping(ctx)
 }
 
-// OnStop implements DBComponent.
+// OnStop implements the launcher.Component interface to gracefully close the database pool.
 func (c *postgresClient) OnStop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -130,7 +126,7 @@ func (c *postgresClient) OnStop() error {
 	return nil
 }
 
-// Execute implements DBExecutor.
+// Execute implements DBProvider.
 func (c *postgresClient) Execute(ctx context.Context, query string, args ...any) error {
 	c.logger.Debug("Postgres: Execute", "query", query)
 	pool, err := c.getInternalPool()
@@ -141,7 +137,7 @@ func (c *postgresClient) Execute(ctx context.Context, query string, args ...any)
 	return c.handleError(err)
 }
 
-// QueryRow implements DBExecutor.
+// QueryRow implements DBProvider.
 func (c *postgresClient) QueryRow(ctx context.Context, query string, args ...any) Row {
 	c.logger.Debug("Postgres: QueryRow", "query", query)
 	pool, err := c.getInternalPool()
@@ -151,7 +147,7 @@ func (c *postgresClient) QueryRow(ctx context.Context, query string, args ...any
 	return pool.QueryRow(ctx, query, args...)
 }
 
-// Query implements DBExecutor.
+// Query implements DBProvider.
 func (c *postgresClient) Query(ctx context.Context, query string, args ...any) (Rows, error) {
 	c.logger.Debug("Postgres: Query", "query", query)
 	pool, err := c.getInternalPool()
@@ -162,7 +158,7 @@ func (c *postgresClient) Query(ctx context.Context, query string, args ...any) (
 	return rows, c.handleError(err)
 }
 
-// Ping implements DBExecutor.
+// Ping implements DBProvider.
 func (c *postgresClient) Ping(ctx context.Context) error {
 	pool, err := c.getInternalPool()
 	if err != nil {
@@ -171,7 +167,7 @@ func (c *postgresClient) Ping(ctx context.Context) error {
 	return pool.Ping(ctx)
 }
 
-// WithTransaction implements DBExecutor.
+// WithTransaction implements DBProvider.
 func (c *postgresClient) WithTransaction(ctx context.Context, fn func(Tx) error) error {
 	c.logger.Debug("Postgres: Iniciando transacción")
 	pool, err := c.getInternalPool()

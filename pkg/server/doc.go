@@ -6,7 +6,7 @@ lifecycle management (initialization, startup, and graceful shutdown), and integ
 logging and error handling.
 
 Features:
-- Singleton HttpServer implementation based on Echo.
+- Singleton HttpServerComponent implementation based on Echo.
 - Pre-configured CORS, Recovery, RequestID, and Logging middlewares.
 - Custom error handling integrated with the mw package.
 - Graceful shutdown support.
