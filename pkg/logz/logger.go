@@ -40,6 +40,7 @@ type (
 
 	// slogLogger is the concrete implementation of Logger using slog.
 	slogLogger struct {
+		// logger is the underlying slog instance.
 		logger *slog.Logger
 	}
 
@@ -57,8 +58,10 @@ const (
 )
 
 var (
+	// globalLogger is the singleton logger instance.
 	globalLogger Logger
-	once         sync.Once
+	// once ensures that the global logger is initialized only once.
+	once sync.Once
 )
 
 // MustInit initializes the global logger once. It reads configuration from environment variables.

@@ -18,13 +18,16 @@ type (
 
 	// customValidator is the concrete implementation of Validator using go-playground/validator.
 	customValidator struct {
+		// v is the underlying validator instance.
 		v *validator.Validate
 	}
 )
 
 var (
+	// global is the singleton validator instance.
 	global Validator
-	once   sync.Once
+	// once ensures that the global validator is initialized only once.
+	once sync.Once
 )
 
 // MustInit initializes the global validator instance once.

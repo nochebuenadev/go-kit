@@ -10,10 +10,14 @@ import (
 // It implements the full error interface and provides additional methods
 // for structured error reporting and logging.
 type AppErr struct {
-	code    ErrorCode      // A high-level error code for programmatic handling.
-	message string         // A human-readable message describing the error.
-	err     error          // The underlying cause of the error (optional).
-	context map[string]any // Key-value pairs providing additional context (optional).
+	// code is the machine-readable error code.
+	code ErrorCode
+	// message is the human-readable description of the error.
+	message string
+	// err is the underlying cause of the error (optional).
+	err error
+	// context contains additional metadata associated with the error (optional).
+	context map[string]any
 }
 
 // New creates a new AppErr with the given code and message.

@@ -1,14 +1,14 @@
 /*
-Package mw provides custom middlewares for the Echo web framework.
+Package mw provides a collection of middleware for the Echo web framework.
 
-It includes utilities for standardizing error handling and managing request context
-information, such as correlation IDs, to ensure consistent behavior and observability
-across the application.
+Middlewares:
+- AppErrorHandler: Standardized error response mapping.
+- WithRequestID: Trace ID propagation.
+- FirebaseAuth: Identity validation via Firebase Admin SDK.
+- EnrichmentMiddleware: Tenant and metadata extraction.
+- Authorizer (RBAC): Permission-based access control.
 
-Features:
-  - AppErrorHandler: Captures both standard and application errors, returns formatted JSON
-    responses, and ensures all failures are logged with rich context.
-  - WithRequestID: Middleware that synchronizes the Echo Request ID with the logz context,
-    enabling trace-id consistency in all logs.
+Each middleware is designed to be easily pluggable and follows the projects structured logging
+and error reporting standards.
 */
 package mw

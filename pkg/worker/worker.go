@@ -27,18 +27,26 @@ type (
 
 	// workerComponent is the concrete implementation of the worker pool.
 	workerComponent struct {
-		logger    logz.Logger
-		cfg       *Config
+		// logger is used for tracking task execution and errors.
+		logger logz.Logger
+		// cfg is the worker pool configuration.
+		cfg *Config
+		// taskQueue is the channel used to dispatch tasks to workers.
 		taskQueue chan Task
-		wg        sync.WaitGroup
-		ctx       context.Context
-		cancel    context.CancelFunc
+		// wg tracks the lifecycle of active worker goroutines.
+		wg sync.WaitGroup
+		// ctx is the background context for worker tasks.
+		ctx context.Context
+		// cancel is used to signal workers to stop.
+		cancel context.CancelFunc
 	}
 )
 
 var (
+	// instance is the singleton worker component.
 	instance Component
-	once     sync.Once
+	// once ensures that the worker pool is initialized only once.
+	once sync.Once
 )
 
 // GetWorker returns the singleton instance of the worker component.
