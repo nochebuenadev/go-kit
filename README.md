@@ -9,21 +9,24 @@ Managed application startup and shutdown. Components register `OnInit`, `OnStart
 
 ### 🔐 Security & Identity ([pkg/authz](file:///home/renenochebuena/Workspace/go-kit/pkg/authz), [pkg/fb](file:///home/renenochebuena/Workspace/go-kit/pkg/fb))
 Unified `Identity` model for user propagation. Integrated with **Firebase Admin SDK** for token verification and bitmask-based **RBAC** for fine-grained access control.
-
-### 🩺 Health Checks ([pkg/health](file:///home/renenochebuena/Workspace/go-kit/pkg/health))
-Concurrent health monitoring for infrastructure dependencies. Supports `Critical` and `Degraded` levels with automatic latency measurement.
-
-### 👥 Shadow Workers ([pkg/worker](file:///home/renenochebuena/Workspace/go-kit/pkg/worker))
-A background task execution pool with configurable concurrency and backpressure handling.
-
-### 📝 Structured Logging ([pkg/logz](file:///home/renenochebuena/Workspace/go-kit/pkg/logz))
-Context-aware structured logging with correlation IDs for request tracing. Supports JSON or Text output.
-
-### ⚠️ Error Handling ([pkg/apperr](file:///home/renenochebuena/Workspace/go-kit/pkg/apperr))
-Custom application errors with machine-readable codes, metadata, and automatic mapping to HTTP status codes.
+- **Stateless RBAC**: High-performance $O(1)$ authorization using bitmask comparisons (supporting up to 63 permissions per application).
+- **Firebase Auth**: Requires `GOOGLE_APPLICATION_CREDENTIALS` environment variable for service account authentication.
 
 ### 🌐 Web & Middleware ([pkg/server](file:///home/renenochebuena/Workspace/go-kit/pkg/server), [pkg/mw](file:///home/renenochebuena/Workspace/go-kit/pkg/mw))
-Echo-based HTTP server with standardized middlewares for Error Handling, Enrichment (Tenant identification), Security (Auth/RBAC), and Request Tracing.
+Echo-based HTTP server with standardized middlewares.
+
+#### Request Flow
+```mermaid
+graph LR
+    A[Request] --> B[RequestID]
+    B --> C[RequestLogger]
+    C --> D[FirebaseAuth]
+    D --> E[Enrichment]
+    E --> F[RBAC Guard]
+    F --> G[Handler]
+    G --> H[Error Handler]
+```
+Standardized middlewares for Error Handling, Enrichment (Tenant identification), Security (Auth/RBAC), and Request Tracing.
 
 ### 💾 Infrastructure ([pkg/pgutil](file:///home/renenochebuena/Workspace/go-kit/pkg/pgutil), [pkg/vkutil](file:///home/renenochebuena/Workspace/go-kit/pkg/vkutil))
 Thread-safe, singleton-based clients for PostgreSQL (using `pgx`) and Valkey (using `valkey-go`).
@@ -57,6 +60,10 @@ func main() {
     
     // 2. Setup Components
     srv := server.GetEchoServer(&server.Config{Port: 8080}, logger)
+    
+    // authProvider := myproject.NewAuthResolver(db, cache)
+    // authorizer := mw.GetAuthorizer(logger, authProvider, "my-service-id")
+    
     l.Append(srv)
 
     // 3. Run happily
