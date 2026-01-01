@@ -50,7 +50,9 @@ type (
 
 	// handler is the concrete implementation of the health Handler.
 	handler struct {
+		// logger is used for reporting health check requests.
 		logger logz.Logger
+		// checks is the list of components to verify.
 		checks []Checkable
 	}
 )
@@ -65,8 +67,10 @@ const (
 )
 
 var (
+	// handlerInstance is the singleton health handler.
 	handlerInstance Handler
-	handlerOnce     sync.Once
+	// handlerOnce ensures the handler is initialized only once.
+	handlerOnce sync.Once
 )
 
 // GetHandler returns the singleton instance of the health handler.

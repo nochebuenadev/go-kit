@@ -33,15 +33,20 @@ type (
 
 	// echoServer is the concrete implementation of HttpServerComponent using Labstack Echo.
 	echoServer struct {
+		// instance is the underlying Echo web framework instance.
 		instance *echo.Echo
-		logger   logz.Logger
-		cfg      *Config
+		// logger is used for tracking server events and requests.
+		logger logz.Logger
+		// cfg is the server configuration.
+		cfg *Config
 	}
 )
 
 var (
+	// serverInstance is the singleton HTTP server component.
 	serverInstance HttpServerComponent
-	serverOnce     sync.Once
+	// serverOnce ensures the server is initialized only once.
+	serverOnce sync.Once
 )
 
 // GetEchoServer returns the singleton instance of the HTTP server.

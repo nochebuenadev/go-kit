@@ -36,8 +36,11 @@ type (
 
 	// launcher is the concrete implementation of the Launcher interface.
 	launcher struct {
-		logger        logz.Logger
-		components    []Component
+		// logger is used for tracking the lifecycle transitions.
+		logger logz.Logger
+		// components is the list of registered components to manage.
+		components []Component
+		// onBeforeStart is the list of hooks to execute before startup.
 		onBeforeStart []Hook
 	}
 )

@@ -47,21 +47,32 @@ type (
 
 	// pgComponent is the concrete implementation of DBComponent using pgxpool.
 	pgComponent struct {
+		// logger is used for tracking database operations and errors.
 		logger logz.Logger
-		cfg    *DatabaseConfig
-		pool   *pgxpool.Pool
-		mu     sync.RWMutex
+		// cfg is the database connection configuration.
+		cfg *DatabaseConfig
+		// pool is the underlying pgx connection pool.
+		pool *pgxpool.Pool
+		// mu protects access to the pool instance during lifecycle changes.
+		mu sync.RWMutex
 	}
 
 	// errRow is a helper to return an error when a QueryRow fails early.
-	errRow struct{ err error }
+	errRow struct {
+		// err is the stored error to return on Scan.
+		err error
+	}
 )
 
 var (
+	// errPoolNotInitialized is returned when an operation is attempted before OnInit.
 	errPoolNotInitialized = errors.New("el pool de postgres no está inicializado")
-	clientInstance        DBComponent
-	clientOnce            sync.Once
-	clientInitOnce        sync.Once
+	// clientInstance is the singleton database component.
+	clientInstance DBComponent
+	// clientOnce ensures the component is initialized only once.
+	clientOnce sync.Once
+	// clientInitOnce ensures the connection pool is created only once.
+	clientInitOnce sync.Once
 )
 
 // GetPostgresClient returns the singleton instance of the database component.

@@ -25,8 +25,11 @@ type (
 
 	// vkComponent is the concrete implementation of ValkeyComponent.
 	vkComponent struct {
+		// client is the underlying valkey-go client.
 		client valkey.Client
-		cfg    *Config
+		// cfg is the valkey connection configuration.
+		cfg *Config
+		// logger is used for tracking valkey operations.
 		logger logz.Logger
 	}
 )
