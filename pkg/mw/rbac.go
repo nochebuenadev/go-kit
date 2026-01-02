@@ -52,13 +52,13 @@ func (r *rbacComponent) Guard(requiredBit int64) echo.MiddlewareFunc {
 
 			id, ok := authz.FromContext(ctx)
 			if !ok {
-				r.logger.Warn("Intento de acceso RBAC sin identidad en el contexto")
+				r.logger.Warn("mw: intento de acceso RBAC sin identidad en el contexto")
 				return echo.ErrUnauthorized
 			}
 
 			mask, err := r.provider.ResolveMask(ctx, id.UID, id.TenantID, r.appID)
 			if err != nil {
-				r.logger.LogError("El provider de permisos fallo al resolver acceso", err,
+				r.logger.LogError("mw: el proveedor de permisos falló al resolver acceso", err,
 					"uid", id.UID, "tenant_id", id.TenantID, "app_id", r.appID)
 				return echo.ErrForbidden
 			}

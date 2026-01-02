@@ -70,42 +70,42 @@ func (l *launcher) BeforeStart(hooks ...Hook) {
 // 4. Waits for termination signal.
 // 5. Graceful shutdown.
 func (l *launcher) Run() {
-	l.logger.Info("Launcher: Iniciando fase de OnInit...")
+	l.logger.Info("launcher: iniciando fase de inicialización (OnInit)")
 	for _, c := range l.components {
 		if err := c.OnInit(); err != nil {
 			l.logger.Fatal("launcher: fallo crítico en OnInit", err)
 		}
 	}
 
-	l.logger.Info("Launcher: Ejecutando hooks de Assembly (DI)...")
+	l.logger.Info("launcher: ejecutando ganchos de ensamblaje (DI)")
 	for _, hook := range l.onBeforeStart {
 		if err := hook(); err != nil {
 			l.logger.Fatal("launcher: fallo crítico en el ensamblaje de dependencias", err)
 		}
 	}
 
-	l.logger.Info("Launcher: Encendiendo componentes (OnStart)...")
+	l.logger.Info("launcher: activando componentes (OnStart)")
 	for _, c := range l.components {
 		if err := c.OnStart(); err != nil {
-			l.logger.Error("launcher: fallo en OnStart, iniciando shutdown preventivo", err)
+			l.logger.Error("launcher: fallo en OnStart, iniciando apagado preventivo", err)
 			l.shutdown()
 			os.Exit(1)
 		}
 	}
 
-	l.logger.Info("🚀 Aplicación lista y operando")
+	l.logger.Info("launcher: aplicación lista y operando")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	s := <-quit
-	l.logger.Info("Launcher: Señal recibida", "signal", s.String())
+	l.logger.Info("launcher: señal de terminación recibida", "signal", s.String())
 
 	l.shutdown()
 }
 
 // shutdown stops all components in reverse order of their registration.
 func (l *launcher) shutdown() {
-	l.logger.Info("Launcher: Iniciando Graceful Shutdown (orden inverso)...")
+	l.logger.Info("launcher: iniciando apagado controlado (Graceful Shutdown)")
 
 	for i := len(l.components) - 1; i >= 0; i-- {
 		done := make(chan struct{})
@@ -123,5 +123,5 @@ func (l *launcher) shutdown() {
 			l.logger.Error("launcher: timeout alcanzado durante el OnStop de un componente", nil)
 		}
 	}
-	l.logger.Info("Launcher: Sistema apagado. ¡Hasta pronto!")
+	l.logger.Info("launcher: sistema apagado correctamente")
 }

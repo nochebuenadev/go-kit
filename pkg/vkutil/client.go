@@ -20,6 +20,7 @@ type (
 	// ValkeyComponent extends ValkeyProvider with lifecycle management methods.
 	ValkeyComponent interface {
 		launcher.Component
+		health.Checkable
 		ValkeyProvider
 	}
 
@@ -35,7 +36,7 @@ type (
 )
 
 // New creates a new ValkeyComponent instance.
-func New(cfg *Config, logger logz.Logger) ValkeyComponent {
+func New(logger logz.Logger, cfg *Config) ValkeyComponent {
 	return &vkComponent{
 		cfg:    cfg,
 		logger: logger,
@@ -66,7 +67,7 @@ func (v *vkComponent) OnInit() error {
 
 // OnStart verifies the connection to Valkey by sending a PING command.
 func (v *vkComponent) OnStart() error {
-	v.logger.Info("vkutil: Verificando conexión con Valkey...")
+	v.logger.Info("vkutil: verificando conexión con Valkey")
 
 	if v.client == nil {
 		return fmt.Errorf("vkutil: cliente no inicializado")
@@ -78,13 +79,13 @@ func (v *vkComponent) OnStart() error {
 		return fmt.Errorf("vkutil: no se pudo conectar a Valkey: %w", err)
 	}
 
-	v.logger.Info("vkutil: Conexión establecida correctamente")
+	v.logger.Info("vkutil: conexión establecida correctamente")
 	return nil
 }
 
 // OnStop closes the Valkey client connections.
 func (v *vkComponent) OnStop() error {
-	v.logger.Info("vkutil: Cerrando cliente de Valkey...")
+	v.logger.Info("vkutil: cerrando cliente de Valkey")
 	if v.client != nil {
 		v.client.Close()
 	}

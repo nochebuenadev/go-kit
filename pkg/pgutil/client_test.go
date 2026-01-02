@@ -18,22 +18,22 @@ func (m *mockLogger) Info(msg string, args ...any)             {}
 func (m *mockLogger) Error(msg string, err error, args ...any) {}
 
 func TestGetPostgresClient(t *testing.T) {
-	cfg := &DatabaseConfig{Host: "localhost", Port: 5432}
+	cfg := &Config{Host: "localhost", Port: 5432}
 	logger := &mockLogger{}
 
-	c1 := GetPostgresClient(cfg, logger)
+	c1 := GetPostgresClient(logger, cfg)
 	if c1 == nil {
 		t.Fatal("expected client, got nil")
 	}
 
-	c2 := GetPostgresClient(cfg, logger)
+	c2 := GetPostgresClient(logger, cfg)
 	if c1 != c2 {
 		t.Error("expected same singleton instance")
 	}
 }
 
 func TestDatabaseConfig_GetConnectionString(t *testing.T) {
-	cfg := &DatabaseConfig{
+	cfg := &Config{
 		Host:     "localhost",
 		Port:     5432,
 		User:     "user",

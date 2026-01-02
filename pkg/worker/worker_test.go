@@ -22,12 +22,12 @@ func (m *mockLogger) WithContext(ctx context.Context) logz.Logger { return m }
 
 func TestGetWorker(t *testing.T) {
 	cfg := &Config{PoolSize: 2, BufferSize: 5}
-	w := GetWorker(cfg, &mockLogger{})
+	w := GetWorker(&mockLogger{}, cfg)
 	if w == nil {
 		t.Fatal("expected worker component, got nil")
 	}
 
-	w2 := GetWorker(cfg, &mockLogger{})
+	w2 := GetWorker(&mockLogger{}, cfg)
 	if w != w2 {
 		t.Error("expected singleton instance")
 	}
@@ -39,7 +39,7 @@ func TestWorkerComponent_Lifecycle(t *testing.T) {
 	once = sync.Once{}
 
 	cfg := &Config{PoolSize: 2, BufferSize: 5}
-	w := GetWorker(cfg, &mockLogger{})
+	w := GetWorker(&mockLogger{}, cfg)
 
 	if err := w.OnInit(); err != nil {
 		t.Fatalf("OnInit failed: %v", err)
@@ -85,7 +85,7 @@ func TestWorkerComponent_Backpressure(t *testing.T) {
 	once = sync.Once{}
 
 	cfg := &Config{PoolSize: 0, BufferSize: 1} // No workers, buffer size 1
-	w := GetWorker(cfg, &mockLogger{})
+	w := GetWorker(&mockLogger{}, cfg)
 
 	task := func(ctx context.Context) error { return nil }
 
@@ -104,7 +104,7 @@ func TestWorkerComponent_ErrorHandling(t *testing.T) {
 	once = sync.Once{}
 
 	cfg := &Config{PoolSize: 1, BufferSize: 1}
-	w := GetWorker(cfg, &mockLogger{})
+	w := GetWorker(&mockLogger{}, cfg)
 	w.OnInit()
 	w.OnStart()
 

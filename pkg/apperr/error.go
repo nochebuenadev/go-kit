@@ -50,7 +50,7 @@ func EnsureAppError(err error) *AppErr {
 		return appErr
 	}
 
-	return Wrap(ErrInternal, "An unexpected error occurred", err)
+	return Wrap(ErrInternal, "Ocurrió un error inesperado", err)
 }
 
 // InvalidInput creates a new AppErr with ErrInvalidInput code.

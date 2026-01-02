@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 	cfg := &Config{
 		Addrs: []string{"localhost:6379"},
 	}
-	v := New(cfg, &mockLogger{})
+	v := New(&mockLogger{}, cfg)
 	if v == nil {
 		t.Fatal("expected ValkeyComponent, got nil")
 	}
@@ -27,7 +27,7 @@ func TestVkComponent_OnInit_Config(t *testing.T) {
 		Addrs:             []string{"localhost:6379"},
 		CacheSizeEachConn: 10,
 	}
-	v := New(cfg, &mockLogger{}).(*vkComponent)
+	v := New(&mockLogger{}, cfg).(*vkComponent)
 
 	// We can't easily test real connection in unit tests without a server
 	// but we can check if it initializes the client (though valkey.NewClient might fail)

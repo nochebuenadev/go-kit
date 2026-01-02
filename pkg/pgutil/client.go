@@ -42,6 +42,7 @@ type (
 	// DBComponent extends DBProvider with lifecycle management methods.
 	DBComponent interface {
 		launcher.Component
+		health.Checkable
 		DBProvider
 	}
 
@@ -50,7 +51,7 @@ type (
 		// logger is used for tracking database operations and errors.
 		logger logz.Logger
 		// cfg is the database connection configuration.
-		cfg *DatabaseConfig
+		cfg *Config
 		// pool is the underlying pgx connection pool.
 		pool *pgxpool.Pool
 		// mu protects access to the pool instance during lifecycle changes.
@@ -76,7 +77,7 @@ var (
 )
 
 // GetPostgresClient returns the singleton instance of the database component.
-func GetPostgresClient(config *DatabaseConfig, logger logz.Logger) DBComponent {
+func GetPostgresClient(logger logz.Logger, config *Config) DBComponent {
 	clientOnce.Do(func() {
 		clientInstance = &pgComponent{
 			cfg:    config,
@@ -101,7 +102,7 @@ func (c *pgComponent) OnInit() error {
 
 		pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 		if err != nil {
-			c.logger.Error("Error al inicializar el cliente de postgres", err)
+			c.logger.Error("pgutil: error al inicializar el cliente de Postgres", err)
 			initErr = err
 			return
 		}
@@ -131,7 +132,7 @@ func (c *pgComponent) OnStop() error {
 	defer c.mu.Unlock()
 
 	if c.pool != nil {
-		c.logger.Info("Cerrando el pool de conexiones de postgres")
+		c.logger.Info("pgutil: cerrando el pool de conexiones de Postgres")
 		c.pool.Close()
 		c.pool = nil
 	}
@@ -140,7 +141,7 @@ func (c *pgComponent) OnStop() error {
 
 // Execute implements DBProvider.
 func (c *pgComponent) Execute(ctx context.Context, query string, args ...any) error {
-	c.logger.Debug("Postgres: Execute", "query", query)
+	c.logger.Debug("pgutil: ejecución de comando (Execute)", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
 		return err
@@ -151,7 +152,7 @@ func (c *pgComponent) Execute(ctx context.Context, query string, args ...any) er
 
 // QueryRow implements DBProvider.
 func (c *pgComponent) QueryRow(ctx context.Context, query string, args ...any) Row {
-	c.logger.Debug("Postgres: QueryRow", "query", query)
+	c.logger.Debug("pgutil: consulta de fila única (QueryRow)", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
 		return &errRow{err: err}
@@ -161,7 +162,7 @@ func (c *pgComponent) QueryRow(ctx context.Context, query string, args ...any) R
 
 // Query implements DBProvider.
 func (c *pgComponent) Query(ctx context.Context, query string, args ...any) (Rows, error) {
-	c.logger.Debug("Postgres: Query", "query", query)
+	c.logger.Debug("pgutil: consulta de múltiples filas (Query)", "query", query)
 	pool, err := c.getInternalPool()
 	if err != nil {
 		return nil, err
@@ -181,7 +182,7 @@ func (c *pgComponent) Ping(ctx context.Context) error {
 
 // WithTransaction implements DBProvider.
 func (c *pgComponent) WithTransaction(ctx context.Context, fn func(Tx) error) error {
-	c.logger.Debug("Postgres: Iniciando transacción")
+	c.logger.Debug("pgutil: iniciando transacción")
 	pool, err := c.getInternalPool()
 	if err != nil {
 		return err

@@ -93,7 +93,7 @@ func GetHandler(logger logz.Logger, checks ...Checkable) Handler {
 func (h *handler) HealthCheck(c echo.Context) error {
 	// El timeout global sigue siendo bueno como "seguro de vida"
 	logger := h.logger.WithContext(c.Request().Context())
-	logger.Debug("Health check request")
+	logger.Debug("health: petición de revisión de salud")
 
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
 	defer cancel()

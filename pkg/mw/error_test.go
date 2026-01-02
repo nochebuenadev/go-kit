@@ -55,7 +55,19 @@ func TestAppErrorHandler(t *testing.T) {
 		{
 			name:           "echo HTTPError",
 			err:            echo.NewHTTPError(http.StatusTeapot, "i'm a teapot"),
-			expectedStatus: http.StatusInternalServerError, // Standardized to internal in current implementation
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_ARGUMENT",
+		},
+		{
+			name:           "echo HTTPError Not Found",
+			err:            echo.NewHTTPError(http.StatusNotFound, "resource not found"),
+			expectedStatus: http.StatusNotFound,
+			expectedCode:   "NOT_FOUND",
+		},
+		{
+			name:           "echo HTTPError Internal",
+			err:            echo.NewHTTPError(http.StatusInternalServerError, "internal server error"),
+			expectedStatus: http.StatusInternalServerError,
 			expectedCode:   "INTERNAL_ERROR",
 		},
 	}
@@ -83,4 +95,100 @@ func TestAppErrorHandler(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("committed response", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.Response().Committed = true
+
+		handler(errors.New("should not be handled"), c)
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected status %d (no change), got %d", http.StatusOK, rec.Code)
+		}
+	})
+}
+
+func TestMapHTTPStatusToAppErr(t *testing.T) {
+	tests := []struct {
+		status   int
+		expected apperr.ErrorCode
+	}{
+		{http.StatusNotFound, apperr.ErrResourceNotFound},
+		{http.StatusUnauthorized, apperr.ErrUnauthorized},
+		{http.StatusForbidden, apperr.ErrPermissionDenied},
+		{http.StatusBadRequest, apperr.ErrInvalidInput},
+		{http.StatusConflict, apperr.ErrConflict},
+		{http.StatusInternalServerError, apperr.ErrInternal},
+		{http.StatusServiceUnavailable, apperr.ErrUnavailable},
+		{http.StatusGatewayTimeout, apperr.ErrDeadlineExceeded},
+		{http.StatusMethodNotAllowed, apperr.ErrNotImplemented},
+		{http.StatusRequestTimeout, apperr.ErrDeadlineExceeded},
+		{http.StatusNotImplemented, apperr.ErrNotImplemented},
+		{http.StatusTeapot, apperr.ErrInvalidInput},
+		{http.StatusBadGateway, apperr.ErrInternal}, // default for 5xx
+		{503, apperr.ErrUnavailable},
+	}
+
+	for _, tt := range tests {
+		he := echo.NewHTTPError(tt.status, "message")
+		ae := mapHTTPStatusToAppErr(he)
+		if ae.GetCode() != string(tt.expected) {
+			t.Errorf("status %d: expected %s, got %s", tt.status, tt.expected, ae.GetCode())
+		}
+	}
+}
+
+func TestMapAppErrToHTTPStatus(t *testing.T) {
+	tests := []struct {
+		code     apperr.ErrorCode
+		expected int
+	}{
+		{apperr.ErrInvalidInput, http.StatusBadRequest},
+		{apperr.ErrResourceNotFound, http.StatusNotFound},
+		{apperr.ErrConflict, http.StatusConflict},
+		{apperr.ErrUnauthorized, http.StatusUnauthorized},
+		{apperr.ErrPermissionDenied, http.StatusForbidden},
+		{apperr.ErrInternal, http.StatusInternalServerError},
+		{apperr.ErrNotImplemented, http.StatusNotImplemented},
+		{apperr.ErrUnavailable, http.StatusServiceUnavailable},
+		{apperr.ErrDeadlineExceeded, http.StatusGatewayTimeout},
+	}
+
+	for _, tt := range tests {
+		ae := apperr.New(tt.code, "message")
+		status := mapAppErrToHTTPStatus(ae)
+		if status != tt.expected {
+			t.Errorf("code %s: expected %d, got %d", tt.code, tt.expected, status)
+		}
+	}
+}
+
+func TestMGetRequestHelpers(t *testing.T) {
+	e := echo.New()
+
+	t.Run("with request", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/test", nil)
+		c := e.NewContext(req, nil)
+
+		if method := mGetRequestMethod(c); method != http.MethodPost {
+			t.Errorf("expected POST, got %s", method)
+		}
+		// echo.Context.RequestURI might be empty in test if not set manually
+		req.RequestURI = "/test"
+		if uri := mGetRequestURI(c); uri != "/test" {
+			t.Errorf("expected /test, got %s", uri)
+		}
+	})
+
+	t.Run("without request", func(t *testing.T) {
+		c := e.NewContext(nil, nil)
+		if method := mGetRequestMethod(c); method != "UNKNOWN" {
+			t.Errorf("expected UNKNOWN, got %s", method)
+		}
+		if uri := mGetRequestURI(c); uri != "UNKNOWN" {
+			t.Errorf("expected UNKNOWN, got %s", uri)
+		}
+	})
 }
