@@ -40,12 +40,12 @@ func TestGetEchoServer(t *testing.T) {
 	// Using a nil logger for simplicity in this specific test if possible,
 	// or I should implement a proper mock.
 
-	srv := GetEchoServer(cfg, nil)
+	srv := GetEchoServer(nil, cfg)
 	if srv == nil {
 		t.Fatal("expected server, got nil")
 	}
 
-	srv2 := GetEchoServer(cfg, nil)
+	srv2 := GetEchoServer(nil, cfg)
 	if srv != srv2 {
 		t.Error("expected same singleton instance")
 	}
@@ -56,7 +56,7 @@ func TestEchoServer_OnInit(t *testing.T) {
 		Port:           8080,
 		AllowedOrigins: []string{"*"},
 	}
-	srv := GetEchoServer(cfg, nil).(*echoServer)
+	srv := GetEchoServer(nil, cfg).(*echoServer)
 
 	err := srv.OnInit()
 	if err != nil {
@@ -70,7 +70,7 @@ func TestEchoServer_OnInit(t *testing.T) {
 
 func TestEchoServer_Registry(t *testing.T) {
 	cfg := &Config{Port: 8080, AllowedOrigins: []string{"*"}}
-	srv := GetEchoServer(cfg, nil)
+	srv := GetEchoServer(nil, cfg)
 
 	called := false
 	srv.Registry(func(e *echo.Echo) {
@@ -84,7 +84,7 @@ func TestEchoServer_Registry(t *testing.T) {
 
 func TestEchoServer_Group(t *testing.T) {
 	cfg := &Config{Port: 8080, AllowedOrigins: []string{"*"}}
-	srv := GetEchoServer(cfg, nil)
+	srv := GetEchoServer(nil, cfg)
 
 	g := srv.Group("/api")
 	if g == nil {

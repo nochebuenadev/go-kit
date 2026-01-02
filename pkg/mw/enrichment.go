@@ -67,6 +67,7 @@ func EnrichmentFromContext(ctx context.Context) (map[string]string, bool) {
 	return v, ok
 }
 
+// setEnrichmentInContext injects the optional headers map into the context.
 func setEnrichmentInContext(ctx context.Context, values map[string]string) context.Context {
 	return context.WithValue(ctx, enrichmentKey{}, values)
 }

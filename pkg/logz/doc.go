@@ -10,10 +10,10 @@ Example usage:
 	logz.MustInit()
 	logger := logz.Global()
 
-	logger.Info("Starting application", "version", "1.0.0")
+	logger.Info("logz: iniciando aplicación", "version", "1.0.0")
 
 	if err != nil {
-		logger.LogError("failed to process request", err)
+		logger.LogError("logz: fallo al procesar petición", err)
 	}
 */
 package logz

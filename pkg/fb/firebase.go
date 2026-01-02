@@ -53,13 +53,13 @@ func GetFirebase(logger logz.Logger, cfg *Config) Component {
 
 // OnInit implements the launcher.Component interface to initialize the Firebase App.
 func (f *firebaseComponent) OnInit() error {
-	f.logger.Info("firebase: inicializando app...", "project_id", f.cfg.ProjectID)
+	f.logger.Info("fb: inicializando aplicación...", "project_id", f.cfg.ProjectID)
 
 	app, err := firebase.NewApp(context.Background(), &firebase.Config{
 		ProjectID: f.cfg.ProjectID,
 	})
 	if err != nil {
-		f.logger.Error("firebase: error al crear la app", err)
+		f.logger.Error("fb: error al crear la aplicación", err)
 		return err
 	}
 
@@ -69,13 +69,13 @@ func (f *firebaseComponent) OnInit() error {
 
 // OnStart implements the launcher.Component interface.
 func (f *firebaseComponent) OnStart() error {
-	f.logger.Info("firebase: motor de google encendido.")
+	f.logger.Info("fb: motor de google activo")
 	return nil
 }
 
 // OnStop implements the launcher.Component interface.
 func (f *firebaseComponent) OnStop() error {
-	f.logger.Info("firebase: apagando conexiones.")
+	f.logger.Info("fb: cerrando conexiones")
 	return nil
 }
 

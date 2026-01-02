@@ -12,11 +12,11 @@ Features:
 
 Example:
 
-	cfg := &pgutil.DatabaseConfig{Host: "localhost", Port: 5432, ...}
+	cfg := &pgutil.Config{Host: "localhost", Port: 5432, ...}
 	db := pgutil.GetPostgresClient(cfg, logger)
 
 	if err := db.OnInit(); err != nil {
-		logger.Fatal("failed to init db", err)
+		logger.Fatal("pgutil: fallo al inicializar bd", err)
 	}
 
 	err := db.Execute(ctx, "INSERT INTO users (name) VALUES ($1)", "John")

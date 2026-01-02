@@ -16,11 +16,11 @@ Example usage:
 	vk := vkutil.New(cfg, logger)
 
 	if err := vk.OnInit(); err != nil {
-		logger.Fatal("failed to init valkey", err)
+		logger.Fatal("vkutil: fallo al inicializar Valkey", err)
 	}
 
 	if err := vk.OnStart(); err != nil {
-		logger.Fatal("failed to connect to valkey", err)
+		logger.Fatal("vkutil: fallo al conectar con Valkey", err)
 	}
 
 	err := vk.Client().Do(ctx, vk.Client().B().Set().Key("foo").Value("bar").Build()).Error()

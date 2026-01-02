@@ -14,11 +14,11 @@ Features:
 
 Example usage:
 
-	cfg := &server.ServerConfig{Port: 8080, AllowedOrigins: []string{"*"}}
-	srv := server.GetEchoServer(cfg, logger)
+	cfg := &server.Config{Port: 8080, AllowedOrigins: []string{"*"}}
+	srv := server.GetEchoServer(logger, cfg)
 
 	if err := srv.OnInit(); err != nil {
-		logger.Fatal("failed to init server", err)
+		logger.Fatal("server: fallo al inicializar el servidor", err)
 	}
 
 	srv.Registry(func(e *echo.Echo) {
@@ -28,7 +28,7 @@ Example usage:
 	})
 
 	if err := srv.OnStart(); err != nil {
-		logger.Fatal("failed to start server", err)
+		logger.Fatal("server: fallo al iniciar el servidor", err)
 	}
 */
 package server

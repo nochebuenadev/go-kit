@@ -50,7 +50,7 @@ var (
 )
 
 // GetEchoServer returns the singleton instance of the HTTP server.
-func GetEchoServer(cfg *Config, logger logz.Logger) HttpServerComponent {
+func GetEchoServer(logger logz.Logger, cfg *Config) HttpServerComponent {
 	serverOnce.Do(func() {
 		serverInstance = &echoServer{
 			instance: echo.New(),
@@ -96,14 +96,14 @@ func (s *echoServer) OnInit() error {
 					"method", v.Method,
 					"status", v.Status,
 					"request_id", v.RequestID,
-				).Info("PETICIÓN")
+				).Info("server: petición procesada")
 			} else {
 				s.logger.With(
 					"uri", v.URI,
 					"method", v.Method,
 					"status", v.Status,
 					"request_id", v.RequestID,
-				).Error("PETICIÓN_FALLIDA", v.Error)
+				).Error("server: petición fallida", v.Error)
 			}
 			return nil
 		},
@@ -114,12 +114,12 @@ func (s *echoServer) OnInit() error {
 
 // OnStart implements the launcher.Component interface to start the Echo server in a separate goroutine.
 func (s *echoServer) OnStart() error {
-	s.logger.Info("Iniciando servidor HTTP", "port", s.cfg.Port)
+	s.logger.Info("server: iniciando servidor HTTP", "port", s.cfg.Port)
 
 	go func() {
 		addr := fmt.Sprintf(":%d", s.cfg.Port)
 		if err := s.instance.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			s.logger.Error("Error fatal en el servidor", err)
+			s.logger.Error("server: error fatal en el servidor", err)
 		}
 	}()
 
@@ -128,7 +128,7 @@ func (s *echoServer) OnStart() error {
 
 // OnStop implements the launcher.Component interface to gracefully shut down the Echo server with a timeout.
 func (s *echoServer) OnStop() error {
-	s.logger.Info("Apagando servidor HTTP (Graceful Shutdown)...")
+	s.logger.Info("server: apagando servidor HTTP (Graceful Shutdown)")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

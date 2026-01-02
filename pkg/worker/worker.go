@@ -50,7 +50,7 @@ var (
 )
 
 // GetWorker returns the singleton instance of the worker component.
-func GetWorker(cfg *Config, logger logz.Logger) Component {
+func GetWorker(logger logz.Logger, cfg *Config) Component {
 	once.Do(func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		instance = &workerComponent{
@@ -74,7 +74,7 @@ func (w *workerComponent) OnInit() error {
 
 // OnStart implements the launcher.Component interface to start the background workers.
 func (w *workerComponent) OnStart() error {
-	w.logger.Info("worker: activando workers en background")
+	w.logger.Info("worker: activando workers en segundo plano")
 	for i := 0; i < w.cfg.PoolSize; i++ {
 		w.wg.Add(1)
 		go func(id int) {
@@ -88,11 +88,11 @@ func (w *workerComponent) OnStart() error {
 // OnStop implements the launcher.Component interface to gracefully shut down the worker pool,
 // processing remaining tasks before exiting.
 func (w *workerComponent) OnStop() error {
-	w.logger.Info("worker: apagando pool, procesando tareas pendientes...")
+	w.logger.Info("worker: apagando pool, procesando tareas pendientes")
 	close(w.taskQueue)
 	w.cancel()
 	w.wg.Wait()
-	w.logger.Info("worker: pool de sombras cerrado correctamente.")
+	w.logger.Info("worker: pool de sombras cerrado correctamente")
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (w *workerComponent) Dispatch(task Task) bool {
 	case w.taskQueue <- task:
 		return true
 	default:
-		w.logger.Error("worker: BACKPRESSURE - Cola llena, tarea ignorada", nil)
+		w.logger.Error("worker: sobrecarga - cola llena, tarea ignorada", nil)
 		return false
 	}
 }
