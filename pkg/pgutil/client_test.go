@@ -13,9 +13,14 @@ type mockLogger struct {
 	logz.Logger
 }
 
-func (m *mockLogger) Debug(msg string, args ...any)            {}
-func (m *mockLogger) Info(msg string, args ...any)             {}
-func (m *mockLogger) Error(msg string, err error, args ...any) {}
+func (m *mockLogger) Debug(msg string, args ...any)               {}
+func (m *mockLogger) Info(msg string, args ...any)                {}
+func (m *mockLogger) Warn(msg string, args ...any)                {}
+func (m *mockLogger) Error(msg string, err error, args ...any)    {}
+func (m *mockLogger) LogError(msg string, err error, args ...any) {}
+func (m *mockLogger) Fatal(msg string, err error, args ...any)    {}
+func (m *mockLogger) With(args ...any) logz.Logger                { return m }
+func (m *mockLogger) WithContext(ctx context.Context) logz.Logger { return m }
 
 func TestGetPostgresClient(t *testing.T) {
 	cfg := &Config{Host: "localhost", Port: 5432}
@@ -50,17 +55,16 @@ func TestDatabaseConfig_GetConnectionString(t *testing.T) {
 }
 
 func TestPostgresClient_HandleError(t *testing.T) {
-	client := &pgComponent{}
 
 	t.Run("nil error", func(t *testing.T) {
-		if client.handleError(nil) != nil {
+		if HandleError(nil) != nil {
 			t.Error("expected nil, got error")
 		}
 	})
 
 	t.Run("apperr mapping", func(t *testing.T) {
 		// Testing simple internal error mapping
-		err := client.handleError(context.DeadlineExceeded)
+		err := HandleError(context.DeadlineExceeded)
 		ae, ok := err.(*apperr.AppErr)
 		if !ok {
 			t.Fatalf("expected *apperr.AppErr, got %T", err)

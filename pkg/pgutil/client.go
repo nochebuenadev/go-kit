@@ -3,7 +3,6 @@ package pgutil
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -18,23 +17,25 @@ import (
 )
 
 type (
-	// Row matches pgx.Row interface.
-	Row pgx.Row
-	// Rows matches pgx.Rows interface.
-	Rows pgx.Rows
-	// Tx matches pgx.Tx interface.
-	Tx pgx.Tx
-
-	// DBProvider defines the set of operations that can be performed against the database.
-	DBProvider interface {
-		// Execute runs a command that doesn't return rows (e.g. INSERT, UPDATE, DELETE).
-		Execute(ctx context.Context, query string, args ...any) error
+	// DBExecutor defines a subset of pgx operations used for executing SQL commands.
+	// It is implemented by both *pgxpool.Pool and pgx.Tx, allowing for transparent
+	// execution of commands within or outside of a transaction.
+	DBExecutor interface {
+		// Exec runs a command that doesn't return rows (e.g. INSERT, UPDATE, DELETE).
+		Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 		// QueryRow executes a query that is expected to return at most one row.
-		QueryRow(ctx context.Context, query string, args ...any) Row
+		QueryRow(ctx context.Context, query string, args ...any) pgx.Row
 		// Query executes a query that is expected to return multiple rows.
-		Query(ctx context.Context, query string, args ...any) (Rows, error)
-		// WithTransaction executes the given function within a database transaction.
-		WithTransaction(ctx context.Context, fn func(Tx) error) error
+		Query(ctx context.Context, query string, args ...any) (pgx.Rows, error)
+	}
+
+	// DBProvider defines the set of operations that can be performed against the database client.
+	DBProvider interface {
+		// GetExecutor returns a DBExecutor based on the context. If a transaction is present
+		// in the context (via UnitOfWork), it returns the transaction; otherwise, it returns the pool.
+		GetExecutor(ctx context.Context) DBExecutor
+		// GetTRX starts and returns a new pgx transaction.
+		GetTRX(ctx context.Context) (pgx.Tx, error)
 		// Ping verifies the connection to the database.
 		Ping(ctx context.Context) error
 	}
@@ -63,6 +64,9 @@ type (
 		// err is the stored error to return on Scan.
 		err error
 	}
+
+	// uowKey is a private type for storing the transaction in the context.
+	uowKey struct{}
 )
 
 var (
@@ -85,6 +89,32 @@ func GetPostgresClient(logger logz.Logger, config *Config) DBComponent {
 		}
 	})
 	return clientInstance
+}
+
+// HandleError maps PostgreSQL and pgx errors to standard application errors (apperr).
+// It identifies unique violations, foreign key violations, and no-rows-found scenarios.
+func HandleError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case pgerrcode.UniqueViolation:
+			return apperr.New(apperr.ErrConflict, "el registro ya existe").
+				WithContext("constraint", pgErr.ConstraintName).WithError(err)
+		case pgerrcode.ForeignKeyViolation:
+			return apperr.New(apperr.ErrInvalidInput, "violación de integridad de datos").
+				WithContext("table", pgErr.TableName).WithError(err)
+		}
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return apperr.NotFound("registro no encontrado").WithError(err)
+	}
+
+	return apperr.Internal("error inesperado en la base de datos").WithError(err)
 }
 
 // OnInit implements the launcher.Component interface to initialize the database pool.
@@ -139,38 +169,6 @@ func (c *pgComponent) OnStop() error {
 	return nil
 }
 
-// Execute implements DBProvider.
-func (c *pgComponent) Execute(ctx context.Context, query string, args ...any) error {
-	c.logger.Debug("pgutil: ejecución de comando (Execute)", "query", query)
-	pool, err := c.getInternalPool()
-	if err != nil {
-		return err
-	}
-	_, err = pool.Exec(ctx, query, args...)
-	return c.handleError(err)
-}
-
-// QueryRow implements DBProvider.
-func (c *pgComponent) QueryRow(ctx context.Context, query string, args ...any) Row {
-	c.logger.Debug("pgutil: consulta de fila única (QueryRow)", "query", query)
-	pool, err := c.getInternalPool()
-	if err != nil {
-		return &errRow{err: err}
-	}
-	return pool.QueryRow(ctx, query, args...)
-}
-
-// Query implements DBProvider.
-func (c *pgComponent) Query(ctx context.Context, query string, args ...any) (Rows, error) {
-	c.logger.Debug("pgutil: consulta de múltiples filas (Query)", "query", query)
-	pool, err := c.getInternalPool()
-	if err != nil {
-		return nil, err
-	}
-	rows, err := pool.Query(ctx, query, args...)
-	return rows, c.handleError(err)
-}
-
 // Ping implements DBProvider.
 func (c *pgComponent) Ping(ctx context.Context) error {
 	pool, err := c.getInternalPool()
@@ -180,34 +178,19 @@ func (c *pgComponent) Ping(ctx context.Context) error {
 	return pool.Ping(ctx)
 }
 
-// WithTransaction implements DBProvider.
-func (c *pgComponent) WithTransaction(ctx context.Context, fn func(Tx) error) error {
-	c.logger.Debug("pgutil: iniciando transacción")
-	pool, err := c.getInternalPool()
-	if err != nil {
-		return err
+// GetExecutor implements DBProvider.
+// It retrieves the active transaction from the context if it exists,
+// satisfying the Unit of Work pattern.
+func (c *pgComponent) GetExecutor(ctx context.Context) DBExecutor {
+	if tx, ok := TXFromContext(ctx); ok {
+		return tx
 	}
+	return c.pool
+}
 
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return c.handleError(err)
-	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback(ctx)
-			panic(p)
-		}
-	}()
-
-	if err := fn(tx); err != nil {
-		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			return c.handleError(fmt.Errorf("error en transacción: %v, el rollback falló: %v", err, rbErr))
-		}
-		return c.handleError(err)
-	}
-
-	return c.handleError(tx.Commit(ctx))
+// GetTRX implements DBProvider.
+func (c *pgComponent) GetTRX(ctx context.Context) (pgx.Tx, error) {
+	return c.pool.Begin(ctx)
 }
 
 // Scan implements the Row interface for errRow, always returning the stored error.
@@ -222,32 +205,6 @@ func (c *pgComponent) getInternalPool() (*pgxpool.Pool, error) {
 		return nil, apperr.Internal("pool de base de datos no inicializado")
 	}
 	return c.pool, nil
-}
-
-// handleError maps PostgreSQL and pgx errors to standard application errors (apperr).
-// It identifies unique violations, foreign key violations, and no-rows-found scenarios.
-func (c *pgComponent) handleError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case pgerrcode.UniqueViolation:
-			return apperr.New(apperr.ErrConflict, "el registro ya existe").
-				WithContext("constraint", pgErr.ConstraintName).WithError(err)
-		case pgerrcode.ForeignKeyViolation:
-			return apperr.New(apperr.ErrInvalidInput, "violación de integridad de datos").
-				WithContext("table", pgErr.TableName).WithError(err)
-		}
-	}
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.NotFound("registro no encontrado").WithError(err)
-	}
-
-	return apperr.Internal("error inesperado en la base de datos").WithError(err)
 }
 
 // HealthCheck implements the health.Checkable interface.
