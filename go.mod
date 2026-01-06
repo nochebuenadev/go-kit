@@ -4,11 +4,14 @@ go 1.25
 
 require (
 	firebase.google.com/go/v4 v4.18.0
+	github.com/avast/retry-go/v4 v4.7.0
 	github.com/go-playground/validator/v10 v10.30.1
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/labstack/echo/v4 v4.14.0
+	github.com/sony/gobreaker v1.0.0
 	github.com/valkey-io/valkey-go v1.0.70
 )
 
@@ -23,6 +26,7 @@ require (
 	cloud.google.com/go/longrunning v0.6.7 // indirect
 	cloud.google.com/go/monitoring v1.24.2 // indirect
 	cloud.google.com/go/storage v1.53.0 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.27.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.51.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.51.0 // indirect
